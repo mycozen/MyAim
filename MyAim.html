@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyAim</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* --- PALETTE VIBRANT PETROL --- */
+            --tac-primary: #FFEC19; 
+            --tac-accent: #d32f2f;
+            --bg-deep: #081418;
+            --panel-bg: rgba(15, 28, 34, 0.98);
+            --glass-border: rgba(255, 236, 25, 0.3); 
+            --glass-blur: blur(10px);
+            --font-stack: 'Chakra Petch', sans-serif;
+            --corner-rad: 6px;
+        }
+
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg-deep);
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px),
+                radial-gradient(circle at center, rgba(20, 60, 70, 0.5) 0%, var(--bg-deep) 100%);
+            background-size: 30px 30px, 30px 30px, cover;
+            color: #eee; font-family: var(--font-stack);
+            overflow: hidden; user-select: none;
+            cursor: default;
+        }
+
+        /* Gestione Stati Visibilità */
+        .game-ui-element { display: none !important; } 
+
+        body.state-menu #menu-overlay { display: flex !important; }
+        
+        body.state-game { cursor: none !important; }
+        body.state-game * { cursor: none !important; }
+        body.state-game #game-area { display: block !important; }
+        body.state-game #ui-layer { display: flex !important; }
+
+        body.state-pause #game-area { display: block !important; }
+        body.state-pause #ui-layer { display: flex !important; }
+        body.state-pause #pause-overlay { display: flex !important; }
+        body.state-pause { cursor: default !important; }
+
+        body.state-results #stats-overlay { display: flex !important; }
+        body.state-results { cursor: default !important; }
+
+        /* UI LAYER */
+        #ui-layer {
+            position: absolute; top: 30px; left: 0; width: 100%;
+            pointer-events: none; z-index: 50;
+            display: flex; justify-content: center; gap: 20px;
+        }
+
+        .hud-pill {
+            background: var(--panel-bg); border: 1px solid var(--glass-border);
+            border-bottom: 3px solid var(--tac-primary); padding: 10px 30px;
+            border-radius: var(--corner-rad); font-size: 1.4rem; font-weight: 700;
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); letter-spacing: 1px;
+            text-transform: uppercase; backdrop-filter: var(--glass-blur);
+            pointer-events: auto;
+        }
+        .hud-pill span { color: var(--tac-primary); text-shadow: 0 0 10px rgba(255, 236, 25, 0.4); }
+
+        /* OVERLAYS */
+        #menu-overlay, #pause-overlay, #stats-overlay {
+            position: absolute; inset: 0; background: rgba(8, 12, 16, 0.96);
+            z-index: 100; display: flex; align-items: center; justify-content: center;
+        }
+        #pause-overlay { z-index: 200; backdrop-filter: blur(8px); }
+
+        /* PANNELLO */
+        .panel {
+            background: var(--panel-bg); backdrop-filter: var(--glass-blur);
+            border: 1px solid rgba(255,255,255,0.08); border-top: 4px solid var(--tac-primary);
+            width: 900px; max-width: 95%; border-radius: var(--corner-rad);
+            padding: 40px; display: flex; flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.9); position: relative;
+        }
+
+        h1 {
+            text-align: left; margin: 0 0 30px 0; font-size: 3rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px; color: #fff;
+            border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 15px;
+        }
+        h1 span { color: var(--tac-primary); text-shadow: 0 0 15px rgba(255, 236, 25, 0.3); }
+        .center-title h1 { text-align: center; }
+
+        /* Controls */
+        .tabs { display: flex; background: rgba(0,0,0,0.3); padding: 4px; border-radius: var(--corner-rad); margin-bottom: 30px; gap: 5px; }
+        .tab-btn { flex: 1; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid transparent; color: #aaa; font-family: var(--font-stack); font-weight: 600; font-size: 1rem; cursor: pointer; border-radius: 4px; transition: 0.2s; text-transform: uppercase; }
+        .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .tab-btn.active { background: var(--tac-primary); color: #081418; font-weight: 700; border-color: var(--tac-primary); box-shadow: 0 0 15px rgba(255, 236, 25, 0.4); }
+
+        .settings-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
+        .control-box { padding: 5px; }
+        label { display: block; color: #9aa; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; }
+        .styled-input, .styled-select { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.1); color: #eee; padding: 10px 15px; border-radius: 4px; font-family: var(--font-stack); font-size: 1rem; font-weight: 600; outline: none; width: 100%; box-sizing: border-box; transition: 0.2s; }
+        .styled-input:focus, .styled-select:focus { border-color: var(--tac-primary); background: rgba(255, 236, 25, 0.05); }
+        .styled-select option { background: #081418; color: white; }
+        .input-row { display: flex; align-items: center; gap: 15px; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 8px; background: rgba(0,0,0,0.4); border-radius: 4px; outline: none; border: 1px solid rgba(255,255,255,0.1); }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 24px; background: var(--tac-primary); border: 2px solid #081418; border-radius: 2px; cursor: pointer; transition: 0.2s; box-shadow: 0 0 10px var(--tac-primary); }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+        /* Buttons */
+        .btn-start, .btn-resume { width: 100%; padding: 18px; font-family: var(--font-stack); font-size: 1.3rem; font-weight: 700; background: var(--tac-primary); color: #081418; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: 0.2s; box-shadow: 0 4px 0 #c7b600, 0 0 20px rgba(255, 236, 25, 0.3); margin-bottom: 10px; }
+        .btn-start:hover, .btn-resume:hover { transform: translateY(2px); box-shadow: 0 2px 0 #c7b600, 0 0 30px rgba(255, 236, 25, 0.5); filter: brightness(1.1); }
+        
+        .btn-full, .btn-menu { background: rgba(255,255,255,0.03); color: #ccc; border: 1px solid rgba(255,255,255,0.1); width: 100%; padding: 14px; font-family: var(--font-stack); font-weight: 600; text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: 0.2s; margin-bottom: 10px; font-size: 0.9rem; letter-spacing: 0.5px; }
+        .btn-full:hover, .btn-menu:hover { background: rgba(255,255,255,0.08); border-color: #fff; color: #fff; }
+
+        .btn-quit { background: #3a0e0e; color: #ffcccc; border: 1px solid #600; width: 100%; padding: 14px; font-family: var(--font-stack); font-weight: 600; text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: 0.2s; }
+        .btn-quit:hover { background: #500; color: white; border-color: #800; }
+
+        .btn-back-menu { width: 100%; margin-top: 20px; padding: 18px; font-size: 1.2rem; font-family: var(--font-stack); font-weight: 700; background: rgba(255, 236, 25, 0.05); color: var(--tac-primary); border: 2px solid var(--tac-primary); border-radius: 4px; cursor: pointer; text-transform: uppercase; transition: 0.2s; box-shadow: 0 0 10px rgba(255, 236, 25, 0.1); }
+        .btn-back-menu:hover { background: var(--tac-primary); color: #081418; box-shadow: 0 0 30px rgba(255, 236, 25, 0.4); }
+
+        .target { position: absolute; border-radius: 50%; border: 3px solid #ffffff; background-color: #ff0000; transform: translate(-50%, -50%); z-index: 10; box-sizing: border-box; box-shadow: 0 0 10px rgba(255, 0, 0, 0.4); cursor: crosshair; }
+
+        #custom-cursor { position: fixed; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); display: none; mix-blend-mode: difference; }
+        .c-dot { width: 6px; height: 6px; background: #00ff00; border-radius: 50%; box-shadow: 0 0 0 2px black; }
+        .c-cross { position: relative; width: 24px; height: 24px; }
+        .c-cross::before, .c-cross::after { content:''; position: absolute; background: #00ff00; }
+        .c-cross::before { top: 11px; left: 0; width: 24px; height: 2px; }
+        .c-cross::after { top: 0; left: 11px; width: 2px; height: 24px; }
+        .c-ch { width: 24px; height: 24px; border: 2px solid #00ff00; border-radius: 50%; display: grid; place-items: center; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; margin-bottom: 10px; }
+        .stat-box { background: #222; padding: 15px; border-radius: 4px; text-align: center; border: 1px solid #333; }
+        .stat-val { font-size: 2rem; color: white; font-weight: bold; }
+        .stat-label { color: #888; font-size: 0.8rem; text-transform: uppercase; font-weight: bold; margin-top: 5px; }
+        .full-span { grid-column: span 6; background: #2a2a2a; border-color: var(--tac-primary); }
+        .full-span .stat-val { font-size: 3rem; color: var(--tac-primary); }
+        .span-2 { grid-column: span 2; } .span-3 { grid-column: span 3; }
+        
+        .copyright-fixed { position: fixed; bottom: 15px; right: 20px; font-size: 0.7rem; color: rgba(255, 255, 255, 0.15); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; z-index: 1000; }
+        .pause-btn-group { display: flex; flex-direction: column; gap: 15px; width: 100%; }
+
+    </style>
+</head>
+<body class="state-menu">
+
+    <div id="custom-cursor"></div>
+
+    <div id="ui-layer" class="game-ui-element">
+        <div class="hud-pill">SCORE: <span id="hud-score" style="margin-left:15px;">0</span></div>
+        <div class="hud-pill"><span id="hud-mode-label">TIME</span>: <span id="hud-info" style="margin-left:10px;">30s</span></div>
+    </div>
+
+    <div id="game-area" class="game-ui-element"></div>
+
+    <div class="copyright-fixed">&copy; Copyright Myco Zennaro 2026</div>
+
+    <div id="pause-overlay" class="game-ui-element">
+        <div class="panel center-title" style="width: 500px; border-top-color: var(--tac-accent);">
+            <h1 style="color: var(--tac-accent);">SYSTEM PAUSED</h1>
+            <p style="color: #aaa; margin-bottom: 25px; font-size: 0.9rem;">(Press P to toggle pause in fullscreen)</p>
+            <div class="pause-btn-group">
+                <button class="btn-resume" onclick="resumeGame()">RESUME</button>
+                <button class="btn-menu" onclick="exitToMenu()">MAIN MENU</button>
+                <button class="btn-quit" onclick="quitApp()">QUIT TO DESKTOP</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="stats-overlay" class="game-ui-element">
+        <div class="panel center-title" style="width: 700px;">
+            <h1 style="margin-bottom: 20px;">MISSION DEBRIEF</h1>
+            <div class="stats-grid">
+                <div class="stat-box full-span">
+                    <div class="stat-val" id="st-score">0</div>
+                    <div class="stat-label">Total Score</div>
+                </div>
+                <div class="stat-box span-2">
+                    <div class="stat-val" id="st-acc" style="color:var(--tac-primary)">0%</div>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+                <div class="stat-box span-2">
+                    <div class="stat-val" id="st-avg-react" style="color:#00eaff">0 ms</div>
+                    <div class="stat-label">Avg Reaction</div>
+                </div>
+                <div class="stat-box span-2">
+                    <div class="stat-val" id="st-hits">0</div>
+                    <div class="stat-label">Hits</div>
+                </div>
+                <div class="stat-box span-3">
+                    <div class="stat-val" id="st-miss-click" style="color:#ffaa00">0</div>
+                    <div class="stat-label">Misses</div>
+                </div>
+                <div class="stat-box span-3">
+                    <div class="stat-val" id="st-expired" style="color:var(--tac-accent)">0</div>
+                    <div class="stat-label">Expired</div>
+                </div>
+            </div>
+            <button class="btn-back-menu" onclick="resetMenu()">BACK TO MENU</button>
+        </div>
+    </div>
+
+    <div id="menu-overlay" class="game-ui-element">
+        <div class="panel" id="main-menu-panel">
+            <h1>MYAIM <span>//</span> TACTICAL</h1>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('time')">Time Attack</button>
+                <button class="tab-btn" onclick="switchTab('survival')">Survival</button>
+                <button class="tab-btn" onclick="switchTab('precision')">Precision Run</button>
+            </div>
+
+            <div class="settings-row">
+                <div class="control-box">
+                    <label>Sensitivity</label>
+                    <div class="input-row">
+                        <input type="range" id="sens-slider" min="0.01" max="5.0" step="0.01" value="1.0" oninput="syncSens('slider')">
+                        <input type="number" id="sens-input" class="styled-input" style="width: 60px;" step="0.01" value="1.0" oninput="syncSens('input')">
+                    </div>
+                </div>
+                <div class="control-box">
+                    <label>Cursor</label>
+                    <select id="opt-cursor" class="styled-select">
+                        <option value="cross">Cross (+)</option>
+                        <option value="ch">Crosshair (O)</option>
+                        <option value="dot">Dot</option>
+                    </select>
+                </div>
+                <div class="control-box">
+                    <label>Target Size</label>
+                    <select id="opt-size" class="styled-select">
+                        <option value="30">Small (30px)</option>
+                        <option value="50" selected>Medium (50px)</option>
+                        <option value="80">Large (80px)</option>
+                        <option value="120">Huge (120px)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="conf-time" class="mode-conf">
+                <div class="settings-row">
+                    <div class="control-box">
+                        <label>Duration</label>
+                        <select id="opt-time-dur" class="styled-select">
+                            <option value="30">30 Seconds</option>
+                            <option value="60">60 Seconds</option>
+                        </select>
+                    </div>
+                    <div class="control-box" style="grid-column: span 2;">
+                        <label>Movement</label>
+                        <select id="opt-move-time" class="styled-select">
+                            <option value="0">Static</option>
+                            <option value="40">Slow</option>
+                            <option value="150">Medium</option>
+                            <option value="300">Fast</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="conf-survival" class="mode-conf" style="display:none;">
+                <div class="settings-row">
+                    <div class="control-box" style="grid-column: span 2;">
+                        <label>Target Lifespan</label>
+                        <div class="input-row">
+                            <input type="range" id="opt-decay-surv" min="1" max="10" value="7" oninput="document.getElementById('decay-badge').innerText = this.value">
+                            <span id="decay-badge" class="value-badge" style="width:20px; text-align:right;">7</span>
+                        </div>
+                    </div>
+                    <div class="control-box">
+                        <label>Lives</label>
+                        <select id="opt-lives" class="styled-select">
+                            <option value="3">3</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-row" style="margin-top:-10px;">
+                    <div class="control-box">
+                        <label>Movement</label>
+                        <select id="opt-move-surv" class="styled-select">
+                            <option value="0">Static</option>
+                            <option value="40">Slow</option>
+                            <option value="150">Medium</option>
+                            <option value="300">Fast</option>
+                        </select>
+                    </div>
+                     <div class="control-box" style="grid-column: span 2;">
+                         <label>Behavior</label>
+                         <select id="opt-prog-surv" class="styled-select">
+                             <option value="fixed">Fixed (Disappears)</option>
+                             <option value="prog">Dynamic (Shrinks)</option>
+                         </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="conf-precision" class="mode-conf" style="display:none;">
+                <div class="settings-row">
+                    <div class="control-box" style="grid-column: span 2;">
+                        <label>Target Lifespan</label>
+                        <div class="input-row">
+                            <input type="range" id="opt-decay-prec" min="1" max="10" value="7" oninput="document.getElementById('decay-badge-p').innerText = this.value">
+                            <span id="decay-badge-p" class="value-badge" style="width:20px; text-align:right;">7</span>
+                        </div>
+                    </div>
+                    <div class="control-box">
+                        <label>Total Targets</label>
+                        <select id="opt-prec-count" class="styled-select">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="30">30</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                </div>
+                 <div class="settings-row" style="margin-top:-10px;">
+                    <div class="control-box">
+                        <label>Movement</label>
+                        <select id="opt-move-prec" class="styled-select">
+                            <option value="0">Static</option>
+                            <option value="40">Slow</option>
+                            <option value="150">Medium</option>
+                            <option value="300">Fast</option>
+                        </select>
+                    </div>
+                     <div class="control-box" style="grid-column: span 2;">
+                         <label>Behavior</label>
+                         <select id="opt-prog-prec" class="styled-select">
+                             <option value="fixed">Fixed (Disappears)</option>
+                             <option value="prog">Dynamic (Shrinks)</option>
+                         </select>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-start" onclick="startGame()">START</button>
+            <button class="btn-full" onclick="toggleFullscreen()">FULLSCREEN</button>
+            <button class="btn-quit" onclick="quitApp()">QUIT TO DESKTOP</button>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'time';
+        let state = {
+            active: false, paused: false, sensitivity: 1,
+            score: 0, hits: 0, clicksMissed: 0, targetsExpired: 0,
+            targets: [], lives: 3, timeLeft: 0, targetsPool: 0, lastTime: 0,
+            baseSize: 50, decayLevel: 5, moveSpeed: 0, progressive: false,
+            reactionTimes: [], pauseStartTime: 0, timerId: null
+        };
+        let mouse = { x: window.innerWidth/2, y: window.innerHeight/2 };
+        
+        const gameArea = document.getElementById('game-area');
+        const cursor = document.getElementById('custom-cursor');
+
+        // State Manager
+        function setUIState(newState) {
+            document.body.classList.remove('state-menu', 'state-game', 'state-pause', 'state-results');
+            document.body.classList.add('state-' + newState);
+        }
+
+        function switchTab(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.mode-conf').forEach(c => c.style.display = 'none');
+            const btns = document.querySelectorAll('.tab-btn');
+            if(mode === 'time') btns[0].classList.add('active');
+            if(mode === 'survival') btns[1].classList.add('active');
+            if(mode === 'precision') btns[2].classList.add('active');
+            document.getElementById('conf-' + mode).style.display = 'block';
+        }
+
+        function toggleFullscreen() {
+            if(window.electronAPI && window.electronAPI.toggleFullscreen) {
+                window.electronAPI.toggleFullscreen();
+            } else {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(console.error);
+                } else {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                }
+            }
+        }
+
+        function quitApp() {
+            window.close();
+            if(window.electronAPI && window.electronAPI.quit) window.electronAPI.quit();
+        }
+
+        function syncSens(source) {
+            const s = document.getElementById('sens-slider');
+            const i = document.getElementById('sens-input');
+            if(source === 'slider') i.value = s.value; else s.value = i.value;
+        }
+
+        function resetMenu() {
+            setUIState('menu');
+            document.exitPointerLock();
+            state.active = false;
+            state.paused = false;
+            if(state.timerId) clearInterval(state.timerId);
+            cursor.style.display = 'none';
+        }
+
+        function startGame() {
+            // Apply settings
+            state.sensitivity = parseFloat(document.getElementById('sens-input').value);
+            state.baseSize = parseInt(document.getElementById('opt-size').value);
+            
+            const cType = document.getElementById('opt-cursor').value;
+            if (cType === 'cross') cursor.innerHTML = '<div class="c-cross"></div>';
+            else if (cType === 'ch') cursor.innerHTML = '<div class="c-ch"></div>';
+            else cursor.innerHTML = '<div class="c-dot"></div>';
+            
+            // SETUP UI
+            setUIState('game');
+            cursor.style.display = 'block';
+            gameArea.innerHTML = '';
+
+            // RESET STATE
+            state.score = 0; state.hits = 0; state.clicksMissed = 0; 
+            state.targetsExpired = 0; state.targets = []; state.reactionTimes = [];
+            state.active = true; state.paused = false;
+            
+            // HUD Label
+            const labelEl = document.getElementById('hud-mode-label');
+            if(currentMode === 'time') labelEl.innerText = "TIME";
+            else if(currentMode === 'survival') labelEl.innerText = "LIVES";
+            else if(currentMode === 'precision') labelEl.innerText = "LEFT";
+
+            // CONFIG MODES
+            if(state.timerId) clearInterval(state.timerId);
+
+            if (currentMode === 'time') {
+                state.timeLeft = parseInt(document.getElementById('opt-time-dur').value);
+                state.moveSpeed = parseInt(document.getElementById('opt-move-time').value);
+                state.progressive = false;
+                state.timerId = setInterval(() => {
+                    if (!state.active || state.paused) return; 
+                    state.timeLeft--;
+                    updateHUD();
+                    if (state.timeLeft <= 0) endGame();
+                }, 1000);
+            } else if (currentMode === 'survival') {
+                state.lives = parseInt(document.getElementById('opt-lives').value);
+                state.decayLevel = parseInt(document.getElementById('opt-decay-surv').value);
+                state.moveSpeed = parseInt(document.getElementById('opt-move-surv').value);
+                state.progressive = document.getElementById('opt-prog-surv').value === 'prog';
+            } else if (currentMode === 'precision') {
+                state.targetsPool = parseInt(document.getElementById('opt-prec-count').value);
+                state.decayLevel = parseInt(document.getElementById('opt-decay-prec').value);
+                state.moveSpeed = parseInt(document.getElementById('opt-move-prec').value);
+                state.progressive = document.getElementById('opt-prog-prec').value === 'prog';
+            }
+
+            updateHUD();
+            
+            // LOCK POINTER & START LOOP
+            gameArea.requestPointerLock = gameArea.requestPointerLock || gameArea.mozRequestPointerLock;
+            gameArea.requestPointerLock();
+            
+            // Generate First Target immediately
+            spawnTarget();
+
+            state.lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- PAUSE & EVENTS ---
+        document.addEventListener('keydown', (e) => {
+            if (!state.active) return;
+            if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && !state.paused) {
+                pauseGame();
+            } else if ((e.key === 'p' || e.key === 'P') && state.paused) {
+                resumeGame();
+            }
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+             if (document.pointerLockElement !== gameArea && state.active && !state.paused) {
+                 pauseGame();
+             }
+        });
+
+        function pauseGame() {
+            state.paused = true;
+            state.pauseStartTime = performance.now();
+            setUIState('pause');
+            document.exitPointerLock();
+            cursor.style.display = 'none'; 
+        }
+
+        function resumeGame() {
+            state.paused = false;
+            const pauseDuration = performance.now() - state.pauseStartTime;
+            state.targets.forEach(t => t.created += pauseDuration);
+            setUIState('game');
+            cursor.style.display = 'block';
+            state.lastTime = performance.now();
+            gameArea.requestPointerLock();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function exitToMenu() {
+            resetMenu();
+        }
+
+        // --- GAMEPLAY INPUT ---
+        document.addEventListener('mousemove', e => {
+            if (!state.active || state.paused) return; 
+
+            if (document.pointerLockElement === gameArea) {
+                // *** ANTI-GLITCH FIX: Ignore jumps > 300px ***
+                if (Math.abs(e.movementX) > 300 || Math.abs(e.movementY) > 300) return;
+
+                mouse.x += e.movementX * state.sensitivity;
+                mouse.y += e.movementY * state.sensitivity;
+            } else {
+                mouse.x = e.clientX; mouse.y = e.clientY;
+            }
+            mouse.x = Math.max(0, Math.min(window.innerWidth, mouse.x));
+            mouse.y = Math.max(0, Math.min(window.innerHeight, mouse.y));
+            cursor.style.left = mouse.x + 'px'; cursor.style.top = mouse.y + 'px';
+        });
+
+        document.addEventListener('mousedown', (e) => {
+            if (!state.active || state.paused) return; 
+            if(e.target.closest('#pause-overlay')) return;
+            
+            if(document.pointerLockElement !== gameArea) {
+                gameArea.requestPointerLock();
+            }
+
+            let hit = false;
+            for (let i = state.targets.length - 1; i >= 0; i--) {
+                const t = state.targets[i];
+                const dx = mouse.x - t.x; const dy = mouse.y - t.y;
+                if (Math.sqrt(dx*dx + dy*dy) < (t.currentSize / 2) + 5) { 
+                    hitTarget(i); hit = true; break;
+                }
+            }
+            if (!hit) state.clicksMissed++;
+        });
+
+        function gameLoop(timestamp) {
+            if (!state.active) return;
+            const dt = (timestamp - state.lastTime) / 1000;
+            state.lastTime = timestamp;
+
+            if (state.paused) { requestAnimationFrame(gameLoop); return; }
+
+            state.targets.forEach((t, idx) => {
+                if (t.vx || t.vy) {
+                    t.x += t.vx * dt; t.y += t.vy * dt;
+                    if (t.x < 0 || t.x > window.innerWidth) t.vx *= -1;
+                    if (t.y < 0 || t.y > window.innerHeight) t.vy *= -1;
+                    t.el.style.left = t.x + 'px'; t.el.style.top = t.y + 'px';
+                }
+                if (currentMode !== 'time') {
+                    t.lifeTime -= dt;
+                    if (t.lifeTime <= 0) {
+                        t.el.remove(); state.targets.splice(idx, 1);
+                        handleExpiredTarget();
+                    } else if (state.progressive) {
+                        const lifePct = t.lifeTime / t.initialLife;
+                        t.currentSize = Math.max(0, state.baseSize * lifePct);
+                        t.el.style.width = t.currentSize + 'px'; t.el.style.height = t.currentSize + 'px';
+                    }
+                }
+            });
+            requestAnimationFrame(gameLoop);
+        }
+
+        function spawnTarget() {
+            if (!state.active || state.paused) return;
+            if (currentMode === 'precision') {
+                if (state.targetsPool <= 0) return;
+                state.targetsPool--;
+            }
+
+            let size = state.baseSize;
+            const minTime = 0.4; const maxTime = 3.0;
+            const normalized = (state.decayLevel - 1) / 9;
+            const duration = minTime + (normalized * (maxTime - minTime));
+            
+            const hudHeight = 130; 
+            const safeY = window.innerHeight - hudHeight - size - 20;
+
+            const t = {
+                x: Math.random() * (window.innerWidth - 100) + 50,
+                y: Math.random() * safeY + hudHeight,
+                currentSize: size, initialLife: duration, lifeTime: duration,
+                created: performance.now(), vx: 0, vy: 0, el: document.createElement('div')
+            };
+
+            if (state.moveSpeed > 0) {
+                t.vx = (Math.random() - 0.5) * state.moveSpeed * 2;
+                t.vy = (Math.random() - 0.5) * state.moveSpeed * 2;
+            }
+
+            t.el.className = 'target';
+            t.el.style.width = size + 'px'; t.el.style.height = size + 'px';
+            t.el.style.left = t.x + 'px'; t.el.style.top = t.y + 'px';
+            gameArea.appendChild(t.el);
+            state.targets.push(t);
+            updateHUD();
+        }
+
+        function hitTarget(idx) {
+            const t = state.targets[idx];
+            const reaction = performance.now() - t.created;
+            state.reactionTimes.push(reaction);
+            t.el.remove(); state.targets.splice(idx, 1);
+            state.score++; state.hits++;
+            updateHUD();
+            if (currentMode === 'precision' && state.targetsPool === 0 && state.targets.length === 0) endGame();
+            else spawnTarget();
+        }
+
+        function handleExpiredTarget() {
+            state.targetsExpired++;
+            const f = document.createElement('div');
+            f.style.position='absolute'; f.style.inset='0'; f.style.background='rgba(255,0,0,0.2)';
+            document.body.appendChild(f); setTimeout(()=>f.remove(), 100);
+
+            if (currentMode === 'survival') {
+                state.lives--; updateHUD();
+                if (state.lives <= 0) endGame(); else spawnTarget();
+            } else if (currentMode === 'precision') {
+                if (state.targetsPool === 0 && state.targets.length === 0) endGame(); else spawnTarget();
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-score').innerText = state.score;
+            const info = document.getElementById('hud-info');
+            if (currentMode === 'time') info.innerText = state.timeLeft + 's';
+            else if (currentMode === 'survival') info.innerText = state.lives;
+            else if (currentMode === 'precision') info.innerText = (state.targetsPool + state.targets.length);
+        }
+
+        function endGame() {
+            setUIState('results');
+            document.exitPointerLock();
+            state.active = false;
+            if(state.timerId) clearInterval(state.timerId);
+            cursor.style.display = 'none';
+
+            const total = state.hits + state.clicksMissed; 
+            const acc = total > 0 ? Math.round((state.hits / total) * 100) : 0;
+            let avgReact = 0;
+            if(state.reactionTimes.length > 0) {
+                const sum = state.reactionTimes.reduce((a, b) => a + b, 0);
+                avgReact = Math.round(sum / state.reactionTimes.length);
+            }
+
+            document.getElementById('st-score').innerText = state.score;
+            document.getElementById('st-acc').innerText = acc + '%';
+            document.getElementById('st-hits').innerText = state.hits;
+            document.getElementById('st-miss-click').innerText = state.clicksMissed;
+            document.getElementById('st-expired').innerText = state.targetsExpired;
+            document.getElementById('st-avg-react').innerText = avgReact + " ms";
+        }
+    </script>
+</body>
+</html>
